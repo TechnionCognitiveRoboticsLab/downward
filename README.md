@@ -1,3 +1,9 @@
+This modified version of Fast Downward includes the option to dump the search progress to a text file, to be later used to train search progress estimators, as in
+Matan Sudry, Erez Karpas, "Learning to Estimate Search Progress Using Sequence of States". ICAPS 2022: 362-370
+
+
+
+
 <img src="misc/images/fast-downward.svg" width="800" alt="Fast Downward">
 
 Fast Downward is a domain-independent classical planning system.
