@@ -64,7 +64,7 @@ SearchEngine::SearchEngine(const plugins::Options &opts)
     if (search_dump_id > 0) {
         string search_dump_filename = "search_dump_" + std::to_string(search_dump_id) + ".txt";
         search_dump_ofstream.open(search_dump_filename, ios::out | ios::trunc);
-        search_dump_ofstream << "N \t id \t g \t h \t f \t b \t h0 \t hmin \t N_of_hmin \t f_max \t path" << endl;
+        search_dump_ofstream << "id\tN\tg\th\tf\tb\th0\thmin\tN_of_hmin\tf_max\tpath" << endl;
         cout << "Dumping search into file: " << search_dump_filename << endl;
     }
 }

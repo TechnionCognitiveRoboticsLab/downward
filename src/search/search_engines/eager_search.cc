@@ -172,9 +172,9 @@ SearchStatus EagerSearch::step() {
         statistics.inc_expanded();
 
         if (search_dump_id > 0) {
+            search_dump_ofstream << id << "\t"; // id   
             search_dump_ofstream << node_serial_num << "\t"; // N
-            node_serial_num++;
-            search_dump_ofstream << id << "\t"; // id            
+            node_serial_num++;                     
             search_dump_ofstream << node->get_g() << "\t"; // dump g
             
             // dump h and f
