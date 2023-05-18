@@ -1,6 +1,16 @@
 This modified version of Fast Downward includes the option to dump the search progress to a text file, to be later used to train search progress estimators, as in
 Matan Sudry, Erez Karpas, "Learning to Estimate Search Progress Using Sequence of States". ICAPS 2022: 362-370
 
+To do this, call Fast Downward with any eager search (astar, eager_greedy, ...), and add the search_dump_id=<num> option (where <num> is any integer > 0), e.g.,
+  
+> ./fast-downward.py misc/tests/benchmarks/gripper/prob01.pddl --evaluator "hff=ff()" --search "astar(lmcut(),search_dump_id=1)"  
+ 
+This runs the search, and dumps the search progress into a file called search_dump_<num>.txt  
+You can then run 
+ 
+> python3 src/postprocess_search_dump.py search_dump_1.txt
+  
+To postprocess this file (adding a label, and replacing the path to each node with the values of the features of the states along the path). This will create a file called search_dump_1.txt_pp.txt
 
 
 
