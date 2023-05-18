@@ -178,15 +178,39 @@ SearchStatus EagerSearch::step() {
             search_dump_ofstream << node->get_g() << "\t"; // dump g
             
             // dump h and f
-            for (shared_ptr<Evaluator> h_evaluator : heuristics) {                
-                search_dump_ofstream << eval_context.get_evaluator_value(h_evaluator.get()) << "\t"; // dump h    
+            for (size_t i = 0; i < heuristics.size(); i++) {
+                auto h_evaluator = heuristics[i];
+                search_dump_ofstream << eval_context.get_evaluator_value(h_evaluator.get()) << "\t"; // dump h
+                if (node_serial_num == 1) {
+                    expansion_count_at_last_min_heuristic_update = node_serial_num - 1;
+                    initial_heuristic_values.push_back(eval_context.get_evaluator_value(h_evaluator.get()));
+                    min_heuristic_values.push_back(eval_context.get_evaluator_value(h_evaluator.get()));
+                }
+                if (eval_context.get_evaluator_value(h_evaluator.get()) < min_heuristic_values[i]) {
+                    min_heuristic_values[i] = eval_context.get_evaluator_value(h_evaluator.get());
+                    expansion_count_at_last_min_heuristic_update = node_serial_num - 1;
+                }
+
             }
             if (f_evaluator != nullptr) {
                 search_dump_ofstream << eval_context.get_evaluator_value(f_evaluator.get()) << "\t"; // dump f
+                if (node_serial_num == 1) {
+                    max_f_values.push_back(eval_context.get_evaluator_value(f_evaluator.get()));
+                }
+                if (eval_context.get_evaluator_value(f_evaluator.get()) > max_f_values[0]) {
+                    max_f_values[0] = eval_context.get_evaluator_value(f_evaluator.get());
+                }
             } else {
                 // if no f-evaluator, repeat h-values
-                for (shared_ptr<Evaluator> h_evaluator : heuristics) {                
+                for (size_t i = 0; i < heuristics.size(); i++) {
+                    auto h_evaluator = heuristics[i];
                     search_dump_ofstream << eval_context.get_evaluator_value(h_evaluator.get()) << "\t"; // dump h as f
+                    if (node_serial_num == 1) {
+                        max_f_values.push_back(eval_context.get_evaluator_value(h_evaluator.get()));
+                    }
+                    if (eval_context.get_evaluator_value(h_evaluator.get()) > max_f_values[i]) {
+                        max_f_values[i] = eval_context.get_evaluator_value(f_evaluator.get());
+                    }
                 }
             }
 
@@ -195,12 +219,32 @@ SearchStatus EagerSearch::step() {
             successor_generator.generate_applicable_ops(s, applicable_ops); 
             search_dump_ofstream << applicable_ops.size() << "\t"; // dump b
 
+            
+            // Initial h-value
+            for (int h0 : initial_heuristic_values) {
+                search_dump_ofstream << h0 << "\t";
+            }
+
+            // min h-value
+            for (int hmin : min_heuristic_values) {
+                search_dump_ofstream << hmin << "\t";
+            }
+
+            // expansion count at last min heuristic update
+            search_dump_ofstream << expansion_count_at_last_min_heuristic_update << "\t";
+
+            // max f-value so far
+            for (int fmax : max_f_values) {
+                search_dump_ofstream << fmax << "\t";
+            }            
+
             // Path P
             std::vector<StateID> path;            
             search_space.trace_path_state(s, path);
             for (StateID sid : path) {
                 search_dump_ofstream << sid << ",";
             }
+            cout << "\t";
 
 
             search_dump_ofstream << endl;

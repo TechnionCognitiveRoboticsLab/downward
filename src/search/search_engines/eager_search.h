@@ -28,6 +28,10 @@ class EagerSearch : public SearchEngine {
     std::shared_ptr<PruningMethod> pruning_method;
 
     std::vector<std::shared_ptr<Evaluator>> heuristics;
+    std::vector<int> initial_heuristic_values;
+    std::vector<int> min_heuristic_values;
+    std::vector<int> max_f_values;
+    int expansion_count_at_last_min_heuristic_update;
 
     void start_f_value_statistics(EvaluationContext &eval_context);
     void update_f_value_statistics(EvaluationContext &eval_context);
