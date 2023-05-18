@@ -32,6 +32,13 @@ EagerSearch::EagerSearch(const plugins::Options &opts)
         cerr << "lazy_evaluator must cache its estimates" << endl;
         utils::exit_with(utils::ExitCode::SEARCH_INPUT_ERROR);
     }
+    if (opts.get<shared_ptr<Evaluator>>("eval", nullptr) != nullptr) {        
+        heuristics.push_back(opts.get<shared_ptr<Evaluator>>("eval", nullptr));
+    } else {
+        for (shared_ptr<Evaluator> h_eval : opts.get_list<shared_ptr<Evaluator>>("evals")) {
+            heuristics.push_back(h_eval);
+        }
+    } 
 }
 
 void EagerSearch::initialize() {
@@ -117,7 +124,6 @@ SearchStatus EagerSearch::step() {
         StateID id = open_list->remove_min();
         State s = state_registry.lookup_state(id);
         node.emplace(search_space.get_node(s));
-
         if (node->is_closed())
             continue;
 
@@ -164,6 +170,41 @@ SearchStatus EagerSearch::step() {
         assert(!node->is_dead_end());
         update_f_value_statistics(eval_context);
         statistics.inc_expanded();
+
+        if (search_dump_id > 0) {
+            search_dump_ofstream << node_serial_num << "\t"; // N
+            node_serial_num++;
+            search_dump_ofstream << id << "\t"; // id            
+            search_dump_ofstream << node->get_g() << "\t"; // dump g
+            
+            // dump h and f
+            for (shared_ptr<Evaluator> h_evaluator : heuristics) {                
+                search_dump_ofstream << eval_context.get_evaluator_value(h_evaluator.get()) << "\t"; // dump h    
+            }
+            if (f_evaluator != nullptr) {
+                search_dump_ofstream << eval_context.get_evaluator_value(f_evaluator.get()) << "\t"; // dump f
+            } else {
+                // if no f-evaluator, repeat h-values
+                for (shared_ptr<Evaluator> h_evaluator : heuristics) {                
+                    search_dump_ofstream << eval_context.get_evaluator_value(h_evaluator.get()) << "\t"; // dump h as f
+                }
+            }
+
+            // Branching factor b
+            vector<OperatorID> applicable_ops;
+            successor_generator.generate_applicable_ops(s, applicable_ops); 
+            search_dump_ofstream << applicable_ops.size() << "\t"; // dump b
+
+            // Path P
+            std::vector<StateID> path;            
+            search_space.trace_path_state(s, path);
+            for (StateID sid : path) {
+                search_dump_ofstream << sid << ",";
+            }
+
+
+            search_dump_ofstream << endl;
+        }
         break;
     }
 

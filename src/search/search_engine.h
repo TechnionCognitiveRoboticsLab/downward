@@ -11,6 +11,8 @@
 #include "task_proxy.h"
 
 #include "utils/logging.h"
+#include <iostream>
+#include <fstream>
 
 #include <vector>
 
@@ -52,6 +54,8 @@ protected:
     OperatorCost cost_type;
     bool is_unit_cost;
     double max_time;
+    int search_dump_id;
+    int node_serial_num = 0;
 
     virtual void initialize() {}
     virtual SearchStatus step() = 0;
@@ -59,6 +63,7 @@ protected:
     void set_plan(const Plan &plan);
     bool check_goal_and_set_plan(const State &state);
     int get_adjusted_cost(const OperatorProxy &op) const;
+    std::ofstream search_dump_ofstream;
 public:
     SearchEngine(const plugins::Options &opts);
     virtual ~SearchEngine();

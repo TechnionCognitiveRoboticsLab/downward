@@ -53,16 +53,26 @@ SearchEngine::SearchEngine(const plugins::Options &opts)
       statistics(log),
       cost_type(opts.get<OperatorCost>("cost_type")),
       is_unit_cost(task_properties::is_unit_cost(task_proxy)),
-      max_time(opts.get<double>("max_time")) {
+      max_time(opts.get<double>("max_time")),
+      search_dump_id(opts.get<int>("search_dump_id"))  {
     if (opts.get<int>("bound") < 0) {
         cerr << "error: negative cost bound " << opts.get<int>("bound") << endl;
         utils::exit_with(ExitCode::SEARCH_INPUT_ERROR);
     }
     bound = opts.get<int>("bound");
     task_properties::print_variable_statistics(task_proxy);
+    if (search_dump_id > 0) {
+        string search_dump_filename = "search_dump_" + std::to_string(search_dump_id) + ".txt";
+        search_dump_ofstream.open(search_dump_filename, ios::out | ios::trunc);
+        search_dump_ofstream << "N \t id \t g \t h \t f \t b \t path" << endl;
+        cout << "Dumping search into file: " << search_dump_filename << endl;
+    }
 }
 
 SearchEngine::~SearchEngine() {
+    if (search_dump_id > 0) {
+        search_dump_ofstream.close();
+    }
 }
 
 bool SearchEngine::found_solution() const {
@@ -83,7 +93,7 @@ void SearchEngine::set_plan(const Plan &p) {
     plan = p;
 }
 
-void SearchEngine::search() {
+void SearchEngine::search() {    
     initialize();
     utils::CountdownTimer timer(max_time);
     while (status == IN_PROGRESS) {
@@ -148,6 +158,9 @@ void SearchEngine::add_options_to_feature(plugins::Feature &feature) {
         "experiments. Timed-out searches are treated as failed searches, "
         "just like incomplete search algorithms that exhaust their search space.",
         "infinity");
+    feature.add_option<int>(
+        "search_dump_id",
+        "if value > 0, dump search info into a file called 'search_dump_<value>.txt'", "0");
     utils::add_log_options_to_feature(feature);
 }
 
