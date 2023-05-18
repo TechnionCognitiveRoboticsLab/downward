@@ -1,5 +1,5 @@
 This modified version of Fast Downward includes the option to dump the search progress to a text file, to be later used to train search progress estimators, as in
-Matan Sudry, Erez Karpas, "Learning to Estimate Search Progress Using Sequence of States". ICAPS 2022: 362-370
+Matan Sudry, Erez Karpas, "Learning to Estimate Search Progress Using Sequence of States". ICAPS 2022: 362-370 (https://ojs.aaai.org/index.php/ICAPS/article/view/19821)
 
 To do this, call Fast Downward with any eager search (astar, eager_greedy, ...), and add the search_dump_id=<num> option (where <num> is any integer > 0), e.g.,
   
