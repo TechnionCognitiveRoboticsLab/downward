@@ -11,11 +11,12 @@ from downward.reports.absolute import AbsoluteReport, PlanningReport
 from downward.reports.scatter import ScatterPlotReport
 from lab.environments import BaselSlurmEnvironment, LocalEnvironment
 from downward.experiment import FastDownwardRun
+import multiprocessing
 
 ATTRIBUTES = ["coverage", "error", "expansions", "planner_memory", "planner_time"]
 
 SUITE = ["depot:p01.pddl", "gripper:prob01.pddl", "mystery:prob07.pddl"]
-ENV = LocalEnvironment(processes=2)
+ENV = LocalEnvironment(processes=multiprocessing.cpu_count())
 # Use path to your Fast Downward repository.
 REPO = os.environ["DOWNWARD_REPO"]
 BENCHMARKS_DIR = os.environ["DOWNWARD_BENCHMARKS"]
@@ -23,7 +24,28 @@ BENCHMARKS_DIR = os.environ["DOWNWARD_BENCHMARKS"]
 REVISION_CACHE = os.environ.get("DOWNWARD_REVISION_CACHE")
 REV = "main"
 
-exp = FastDownwardExperiment(environment=ENV, revision_cache=REVISION_CACHE)
+
+class GzipFastDownwardRun(FastDownwardRun):
+    def __init__(self, exp, algo, task):
+        FastDownwardRun.__init__(self, exp, algo, task)
+        self.add_command(
+            "gzip_search_dump",
+            ["gzip", "search_dump_1.txt"]
+        )
+
+
+class GzipFastDownwardExperiment(FastDownwardExperiment):
+    def __init__(self, environment, revision_cache):
+        FastDownwardExperiment.__init__(self, environment=environment, revision_cache=revision_cache)
+
+    def _add_runs(self):
+        tasks = self._get_tasks()
+        for algo in self._algorithms.values():
+            for task in tasks:
+                self.add_run(GzipFastDownwardRun(self, algo, task))
+
+
+exp = GzipFastDownwardExperiment(environment=ENV, revision_cache=REVISION_CACHE)
 
 # Add built-in parsers to the experiment.
 exp.add_parser(exp.EXITCODE_PARSER)
@@ -48,39 +70,25 @@ exp.add_step("build", exp.build)
 # Add step that executes all runs.
 exp.add_step("start", exp.start_runs)
 
-def collect_data():
-    print(exp)
-
 # Add step that collects properties from run directories and
 # writes them to *-eval/properties.
 exp.add_fetcher(name="fetch")
-
-
 
 
 class SearchDumpReport(PlanningReport):
     def get_text(self):
         data = [ ("search_algorithm", "heuristic", "domain", "problem", "expansions", "search_dump_file") ]
         for (domain, problem), runs in self.problem_runs.items():
-            for run in runs:
+            for run in runs:                
                 algorithm = run["algorithm"]
                 search_algo = algorithm.split("_")[0]
-                heuristic = algorithm.split("_")[1]
-                domain = run["domain"]
+                heuristic = algorithm.split("_")[1]                    
                 run_dir = run["run_dir"]
-                data.append( (search_algo, heuristic, domain, run["problem"], str(run["expansions"]), os.path.join(exp.path, run_dir, "search_dump_1.txt") ))
+                data.append( (search_algo, heuristic, domain, problem, str(run["expansions"]), os.path.join(exp.path, run_dir, "search_dump_1.txt.gz") ))
         return "\n".join(map(lambda line: ",".join(line),data))
 
-def my_filter(run):
-    return run["coverage"] == 1
-
-# Add report step (AbsoluteReport is the standard report).
-#exp.add_report(
-#    PlanningReport(attributes=["expansions", "coverage"], format="txt", filter=my_filter), outfile="report.html"
-#)
-
 exp.add_report(
-    SearchDumpReport(filter=my_filter),outfile="data.csv"
+    SearchDumpReport(filter=lambda run: run["coverage"] == 1),outfile="data.csv"
 )
 
 
