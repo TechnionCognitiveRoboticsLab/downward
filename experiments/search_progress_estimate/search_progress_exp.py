@@ -7,28 +7,10 @@ import os.path
 import copy
 
 from downward.experiment import FastDownwardExperiment
-from downward.reports.absolute import AbsoluteReport
+from downward.reports.absolute import AbsoluteReport, PlanningReport
 from downward.reports.scatter import ScatterPlotReport
 from lab.environments import BaselSlurmEnvironment, LocalEnvironment
 from downward.experiment import FastDownwardRun
-
-
-class FastDownwardExperimentWithSerialNumber(FastDownwardExperiment):
-    def __init__(self, path=None, environment=None, revision_cache=None):
-        super().__init__(path, environment, revision_cache)
-
-    def _add_runs(self):
-        i = 0
-        tasks = self._get_tasks()
-        for algo in self._algorithms.values():
-            for task in tasks:        
-                i = i + 1
-                new_algo = copy.deepcopy(algo)        
-                new_algo.component_options = list(map(lambda x: x.replace("%SN%", str(i)), algo.component_options))
-                print(self, new_algo, task)
-                self.add_run(FastDownwardRun(self, new_algo, task))
-
-
 
 ATTRIBUTES = ["coverage", "error", "expansions", "planner_memory", "planner_time"]
 
@@ -41,7 +23,7 @@ BENCHMARKS_DIR = os.environ["DOWNWARD_BENCHMARKS"]
 REVISION_CACHE = os.environ.get("DOWNWARD_REVISION_CACHE")
 REV = "main"
 
-exp = FastDownwardExperimentWithSerialNumber(environment=ENV, revision_cache=REVISION_CACHE)
+exp = FastDownwardExperiment(environment=ENV, revision_cache=REVISION_CACHE)
 
 # Add built-in parsers to the experiment.
 exp.add_parser(exp.EXITCODE_PARSER)
@@ -57,8 +39,8 @@ heuristics = {
 
 exp.add_suite(BENCHMARKS_DIR, SUITE)
 for hname, heuristic in heuristics.items():
-    exp.add_algorithm("gbfs_" + hname, REPO, REV, ["--evaluator", "h=" + heuristic, "--search",  "eager_greedy([h],search_dump_id=%SN%)"])
-    exp.add_algorithm("astar_" + hname, REPO, REV, ["--evaluator", "h=" + heuristic, "--search", "astar(h,search_dump_id=%SN%)"])
+    exp.add_algorithm("gbfs_" + hname, REPO, REV, ["--evaluator", "h=" + heuristic, "--search",  "eager_greedy([h],search_dump_id=1)"])
+    exp.add_algorithm("astar_" + hname, REPO, REV, ["--evaluator", "h=" + heuristic, "--search", "astar(h,search_dump_id=1)"])
 
 # Add step that writes experiment files to disk.
 exp.add_step("build", exp.build)
@@ -66,20 +48,41 @@ exp.add_step("build", exp.build)
 # Add step that executes all runs.
 exp.add_step("start", exp.start_runs)
 
+def collect_data():
+    print(exp)
+
 # Add step that collects properties from run directories and
 # writes them to *-eval/properties.
 exp.add_fetcher(name="fetch")
 
+
+
+
+class SearchDumpReport(PlanningReport):
+    def get_text(self):
+        data = [ ("search_algorithm", "heuristic", "domain", "problem", "expansions", "search_dump_file") ]
+        for (domain, problem), runs in self.problem_runs.items():
+            for run in runs:
+                algorithm = run["algorithm"]
+                search_algo = algorithm.split("_")[0]
+                heuristic = algorithm.split("_")[1]
+                domain = run["domain"]
+                run_dir = run["run_dir"]
+                data.append( (search_algo, heuristic, domain, run["problem"], str(run["expansions"]), os.path.join(exp.path, run_dir, "search_dump_1.txt") ))
+        return "\n".join(map(lambda line: ",".join(line),data))
+
+def my_filter(run):
+    return run["coverage"] == 1
+
 # Add report step (AbsoluteReport is the standard report).
+#exp.add_report(
+#    PlanningReport(attributes=["expansions", "coverage"], format="txt", filter=my_filter), outfile="report.html"
+#)
+
 exp.add_report(
-    AbsoluteReport(attributes=ATTRIBUTES, format="html"), outfile="report.html"
+    SearchDumpReport(filter=my_filter),outfile="data.csv"
 )
 
-# Add scatter plot report step.
-exp.add_report(
-    ScatterPlotReport(attributes=["expansions"], filter_algorithm=["blind", "lmcut"]),
-    outfile="scatterplot.png",
-)
 
 # Parse the commandline and show or run experiment steps.
 exp.run_steps()
