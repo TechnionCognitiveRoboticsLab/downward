@@ -86,7 +86,7 @@ class SearchDumpDataset(Dataset):
             if node_row.ndim > 1:
                 node_row = node_row[0,:].to_numpy(dtype=numpy.float64)
             megarow_list.append(node_row)                        
-        megarow_list.append([0.0] * (len(df.columns) - 2) * (self.height - len(nodes)))                                                    
+        megarow_list.append([0.0] * len(self.basic_header_names) * (self.height - len(nodes)))
         megarow = numpy.concatenate(megarow_list,axis=None)
         if self.transform is not None:
             return self.transform(megarow)        
@@ -113,9 +113,9 @@ def main():
 
     
     print(len(ds), len(ds2))
-    print(ds[0])
-    print(ds[0])
-    print(ds[3])
+    print(len(ds[0]))
+    print(len(ds[0]))
+    print(len(ds[3]))
     print(ds[3000000])
 
     
