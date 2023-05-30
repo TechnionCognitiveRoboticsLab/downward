@@ -8,6 +8,7 @@ from torchvision.transforms import ToTensor
 class SearchDumpDataset(Dataset):    
     def __init__(self, datafilename : str, 
                  height : int = 3, 
+                 seq_len : int = 10,
                  min_expansions : int = 1000, 
                  max_expansions : int = 1000000, 
                  search_algorithm : str = "",
@@ -17,6 +18,7 @@ class SearchDumpDataset(Dataset):
                  transform = None):
         self.datafilename = datafilename
         self.height = height
+        self.seq_len = seq_len
         self.min_expansions = min_expansions
         self.max_expansions = max_expansions
         self.transform = transform
@@ -69,14 +71,11 @@ class SearchDumpDataset(Dataset):
     def get_search_dump(self, filename):
         return self.data[filename]
     
-    def generate_row(self, data_row, relative_idx):
-        df = self.get_search_dump(data_row.search_dump_file)
-        row = df.iloc[relative_idx]
-        label = row.N / (len(df.index) - 1)
+    def generate_row_X(self, row, df):
         path = row.path
         crow = row[self.basic_header_names].to_numpy(dtype=numpy.float64)
         megarow_list = [#[data_row.search_algorithm, data_row.heuristic, data_row.domain, data_row.problem, data_row.search_dump_file],
-                        [label],crow]
+                        crow]
         if isinstance(path, str):                    
             nodes = list(filter(lambda node: node != "", path.split(",")[::-1]))[:self.height]                    
         else:
@@ -87,10 +86,23 @@ class SearchDumpDataset(Dataset):
                 node_row = node_row[0,:].to_numpy(dtype=numpy.float64)
             megarow_list.append(node_row)                        
         megarow_list.append([0.0] * len(self.basic_header_names) * (self.height - len(nodes)))
-        megarow = numpy.concatenate(megarow_list,axis=None)
-        if self.transform is not None:
-            return self.transform(megarow)        
+        megarow = torch.as_tensor(numpy.concatenate(megarow_list,axis=None))
         return megarow
+
+    def generate_row(self, data_row, relative_idx):
+        df = self.get_search_dump(data_row.search_dump_file)
+        row = df.iloc[relative_idx]
+        label = torch.as_tensor(row.N / (len(df.index) - 1))
+        Xs = []
+        current_index = relative_idx
+        while current_index >= 0 and current_index > relative_idx - self.seq_len:
+            row = df.iloc[current_index]
+            Xs.append(self.generate_row_X(row, df))
+            current_index = current_index - 1
+        while current_index > relative_idx - self.seq_len:
+            Xs.append(torch.as_tensor([0.0] * len(self.basic_header_names) * (self.height + 1)))
+            current_index = current_index - 1
+        return torch.stack(Xs), label
     
     def __getitem__(self, idx):
         current_idx = 0
@@ -108,14 +120,14 @@ import torch
 def main():
     filename="/home/karpase/git/downward/experiments/search_progress_estimate/data/search_progress_exp-eval/data.csv"    
     #filename=sys.argv[1]
-    ds = SearchDumpDataset(filename, height=2, min_expansions=5, domain="depot", not_domain=True, transform=torch.torch.as_tensor)
-    ds2 = SearchDumpDataset(filename, height=2, min_expansions=5, domain="depot", not_domain=False)
+    ds = SearchDumpDataset(filename, height=2, seq_len = 4, min_expansions=5, domain="depot", not_domain=True)
+    ds2 = SearchDumpDataset(filename, height=2, seq_len = 1, min_expansions=5, domain="depot", not_domain=False)
 
     
     print(len(ds), len(ds2))
-    print(len(ds[0]))
-    print(len(ds[0]))
-    print(len(ds[3]))
+    print(ds[0])
+    print(ds[1])
+    print(ds[3])
     print(ds[3000000])
 
     
