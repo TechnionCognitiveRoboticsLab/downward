@@ -74,7 +74,7 @@ class SearchDumpDataset(Dataset):
         row = df.iloc[relative_idx]
         label = row.N / (len(df.index) - 1)
         path = row.path
-        crow = row[self.basic_header_names].values
+        crow = row[self.basic_header_names].to_numpy(dtype=numpy.float64)
         megarow_list = [#[data_row.search_algorithm, data_row.heuristic, data_row.domain, data_row.problem, data_row.search_dump_file],
                         [label],crow]
         if isinstance(path, str):                    
@@ -82,12 +82,14 @@ class SearchDumpDataset(Dataset):
         else:
             nodes = []
         for node in nodes:                    
-            node_row = df.loc[node][self.basic_header_names].values
+            node_row = df.loc[node][self.basic_header_names].to_numpy(dtype=numpy.float64)
             if node_row.ndim > 1:
-                node_row = node_row[0,:]
+                node_row = node_row[0,:].to_numpy(dtype=numpy.float64)
             megarow_list.append(node_row)                        
         megarow_list.append([0.0] * (len(df.columns) - 2) * (self.height - len(nodes)))                                                    
         megarow = numpy.concatenate(megarow_list,axis=None)
+        if self.transform is not None:
+            return self.transform(megarow)        
         return megarow
     
     def __getitem__(self, idx):
@@ -101,10 +103,12 @@ class SearchDumpDataset(Dataset):
 
         return None
 
+import torch
+
 def main():
     filename="/home/karpase/git/downward/experiments/search_progress_estimate/data/search_progress_exp-eval/data.csv"    
     #filename=sys.argv[1]
-    ds = SearchDumpDataset(filename, height=2, min_expansions=5, domain="depot", not_domain=True)
+    ds = SearchDumpDataset(filename, height=2, min_expansions=5, domain="depot", not_domain=True, transform=torch.torch.as_tensor)
     ds2 = SearchDumpDataset(filename, height=2, min_expansions=5, domain="depot", not_domain=False)
 
     
