@@ -1,18 +1,44 @@
 import pandas
+import numpy
 import sys
 import gzip
 from torch.utils.data import Dataset
-import numpy
+from torchvision.transforms import ToTensor
 
-class SearchDumpDataset(Dataset):
-    def __init__(self, datafilename, height = 3, min_expansions = 1000, max_expansions = 1000000):        
+class SearchDumpDataset(Dataset):    
+    def __init__(self, datafilename : str, 
+                 height : int = 3, 
+                 min_expansions : int = 1000, 
+                 max_expansions : int = 1000000, 
+                 search_algorithm : str = "",
+                 heuristic : str = "",
+                 domain : str = "",
+                 not_domain : bool = False,
+                 transform = None):
         self.datafilename = datafilename
         self.height = height
         self.min_expansions = min_expansions
         self.max_expansions = max_expansions
+        self.transform = transform
+        self.search_algorithm = search_algorithm
+        self.heuristic = heuristic
+        self.domain = domain
+        self.not_domain = not_domain
         
         df = pandas.read_csv(datafilename)    
-        self.data_df = df[(df.expansions <= self.max_expansions) & (df.expansions >= self.min_expansions)]
+        df = df[(df.expansions <= self.max_expansions) & (df.expansions >= self.min_expansions)]
+        if self.domain != "":
+            if self.not_domain:
+                df = df[df.domain != self.domain]
+            else:
+                df = df[df.domain == self.domain]
+        if self.search_algorithm != "":
+            df = df[df.search_algorithm == self.search_algorithm]
+        if self.heuristic != "":
+            df = df[df.heuristic == self.heuristic]
+        self.data_df = df
+        
+
         self.data = {}
 
         self.headers = []
@@ -49,7 +75,8 @@ class SearchDumpDataset(Dataset):
         label = row.N / (len(df.index) - 1)
         path = row.path
         crow = row[self.basic_header_names].values
-        megarow_list = [[data_row.search_algorithm, data_row.heuristic, data_row.domain, data_row.problem, data_row.search_dump_file],[label],crow]
+        megarow_list = [#[data_row.search_algorithm, data_row.heuristic, data_row.domain, data_row.problem, data_row.search_dump_file],
+                        [label],crow]
         if isinstance(path, str):                    
             nodes = list(filter(lambda node: node != "", path.split(",")[::-1]))[:self.height]                    
         else:
@@ -59,8 +86,8 @@ class SearchDumpDataset(Dataset):
             if node_row.ndim > 1:
                 node_row = node_row[0,:]
             megarow_list.append(node_row)                        
-        megarow_list.append([0] * (len(df.columns) - 2) * (self.height - len(nodes)))                                                    
-        megarow = numpy.concatenate(megarow_list,axis=None) 
+        megarow_list.append([0.0] * (len(df.columns) - 2) * (self.height - len(nodes)))                                                    
+        megarow = numpy.concatenate(megarow_list,axis=None)
         return megarow
     
     def __getitem__(self, idx):
@@ -75,16 +102,18 @@ class SearchDumpDataset(Dataset):
         return None
 
 def main():
-    filename="/home/karpase/git/downward/experiments/search_progress_estimate/search_progress_exp-eval/data.csv"
+    filename="/home/karpase/git/downward/experiments/search_progress_estimate/data/search_progress_exp-eval/data.csv"    
     #filename=sys.argv[1]
-    ds = SearchDumpDataset(filename)
-    print(ds)
-    print(len(ds))
+    ds = SearchDumpDataset(filename, height=2, min_expansions=5, domain="depot", not_domain=True)
+    ds2 = SearchDumpDataset(filename, height=2, min_expansions=5, domain="depot", not_domain=False)
+
+    
+    print(len(ds), len(ds2))
     print(ds[0])
-    print(ds[1])
+    print(ds[0])
     print(ds[3])
     print(ds[3000000])
-    
+
     
 
 if __name__ == "__main__":
