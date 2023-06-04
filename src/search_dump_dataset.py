@@ -38,12 +38,12 @@ class SingleFileSearchDumpDataset(Dataset):
                 node_row = node_row[0,:].to_numpy(dtype=numpy.float64)
             megarow_list.append(node_row)                        
         megarow_list.append([0.0] * len(self.basic_header_names) * (self.height - len(nodes)))
-        megarow = torch.as_tensor(numpy.concatenate(megarow_list,axis=None))
+        megarow = torch.as_tensor(numpy.concatenate(megarow_list,axis=None)).float()
         return megarow
 
     def __getitem__(self, idx):        
         row = self.df.iloc[idx]
-        label = torch.as_tensor( [row.N / (len(self.df.index) - 1)] )
+        label = torch.as_tensor( row.N / (len(self.df.index) - 1) ).float()
         Xs = []  
         current_index = idx      
         while current_index >= 0 and current_index > idx - self.seq_len:
@@ -110,7 +110,7 @@ def main():
     random.seed(42)
     filename="/home/karpase/git/downward/experiments/search_progress_estimate/data/search_progress_exp-eval/data.csv"    
     #filename=sys.argv[1]
-    ds = SearchDumpDataset(filename, height=2, seq_len = 4, min_expansions=5, domain="depot", not_domain=True)
+    ds = SearchDumpDataset(filename, height=2, seq_len = 2, min_expansions=5, domain="depot", not_domain=True)
     ds2 = SearchDumpDataset(filename, height=2, seq_len = 1, min_expansions=5, domain="depot", not_domain=False)
 
     
@@ -125,8 +125,8 @@ def main():
     for batch in sampler:
         print(batch)
 
-    for data_point in dataloader:
-        print(data_point)
+    for X, y in dataloader:
+        print(X,y)
 
     
 
