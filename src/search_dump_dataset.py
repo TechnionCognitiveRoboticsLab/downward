@@ -3,7 +3,7 @@ import numpy
 import sys
 import gzip
 from torch.utils.data import Dataset
-from torchvision.transforms import ToTensor
+import random
 
 class SearchDumpDataset(Dataset):    
     def __init__(self, datafilename : str, 
@@ -14,14 +14,12 @@ class SearchDumpDataset(Dataset):
                  search_algorithm : str = "",
                  heuristic : str = "",
                  domain : str = "",
-                 not_domain : bool = False,
-                 transform = None):
+                 not_domain : bool = False):
         self.datafilename = datafilename
         self.height = height
         self.seq_len = seq_len
         self.min_expansions = min_expansions
         self.max_expansions = max_expansions
-        self.transform = transform
         self.search_algorithm = search_algorithm
         self.heuristic = heuristic
         self.domain = domain
@@ -92,7 +90,7 @@ class SearchDumpDataset(Dataset):
     def generate_row(self, data_row, relative_idx):
         df = self.get_search_dump(data_row.search_dump_file)
         row = df.iloc[relative_idx]
-        label = torch.as_tensor(row.N / (len(df.index) - 1))
+        label = torch.as_tensor( [row.N / (len(df.index) - 1)] )
         Xs = []
         current_index = relative_idx
         while current_index >= 0 and current_index > relative_idx - self.seq_len:
@@ -113,7 +111,7 @@ class SearchDumpDataset(Dataset):
             else:
                 current_idx = current_idx + row.expansions
 
-        return None
+        return None    
 
 import torch
 
