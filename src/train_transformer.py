@@ -12,47 +12,25 @@ from torch.utils.data import DataLoader
 # else: 
 #     dev = "cpu" 
 # device = torch.device(dev) 
-# print(device)
+# print("Pytorch CUDA Version is ", torch.version.cuda)
+# cuda_id = torch.cuda.current_device()
+# print("CUDA Device ID: ", torch.cuda.current_device())
+# print("Name of the current CUDA Device: ", torch.cuda.get_device_name(cuda_id))
 
-
-#filename="/home/karpase/git/downward/experiments/search_progress_estimate/data/search_progress_exp-eval/data.csv"    
+#filename_train="/home/karpase/git/downward/experiments/search_progress_estimate/data/search_progress_exp-eval/data.csv"    
 filename="/home/karpase/static/data.csv"
 #filename=sys.argv[1]
-train = SearchDumpDataset(filename, height=2, seq_len = 5, min_expansions=1000)#, domain="gripper") 
-#test = SearchDumpDataset(filename, height=2, seq_len = 5, min_expansions=5, transform=xy_transform, domain="gripper", not_domain=True)
-print(len(train))#, len(test))
 
 
+
+train = SearchDumpDataset(filename, height=3, seq_len = 10, min_expansions=10) 
 train_sampler = SearchDumpDatasetSampler(train, batch_size_per_dump=1)
 train_loader = DataLoader(train, batch_sampler=train_sampler)
 
-# X,y = train[4122]
+# test = SearchDumpDataset(filename_test, height=3, seq_len = 10, min_expansions=10)
+# test_sampler = SearchDumpDatasetSampler(test, batch_size_per_dump=1)
+# test_loader = DataLoader(test, batch_sampler=test_sampler)
 
-# for i in range(len(train)):
-#     print(i)
-#     print(train[i])
-
-
-dim = train[0][0].shape[1] * train[0][0].shape[0]
-
-# class SearchProgressModel(nn.Module):
-#     def __init__(self):
-#         super().__init__()
-#         self.lstm = nn.LSTM(input_size=dim, hidden_size=50, num_layers=1, batch_first=True)
-#         self.linear = nn.Linear(50, 1)
-#     def forward(self, x):
-#         x, _ = self.lstm(x)
-#         x = self.linear(x)
-#         return x
-# model = SearchProgressModel()    
-
-# model = nn.Sequential(
-#     nn.Linear(dim, 100, dtype=torch.float64),
-#     nn.ReLU(),
-#     nn.Linear(100, 50, dtype=torch.float64),
-#     nn.ReLU(),
-#     nn.Linear(50, 1, dtype=torch.float64)
-# )    
 
 
 class ShallowRegressionLSTM(nn.Module):
@@ -89,7 +67,7 @@ loss_function = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
 
-# model.to(device)
+#model.to(device)
 
 def train_model(data_loader, model, loss_function, optimizer):
     num_batches = len(data_loader)
@@ -97,8 +75,9 @@ def train_model(data_loader, model, loss_function, optimizer):
     model.train()
     
     for X, y in data_loader:
-        # X.to(device)
-        # y.to(device)
+        #X.to(device)
+        #y.to(device)
+        #print("device", X.device, y.device)
         output = model(X)
         loss = loss_function(output, y)
 
@@ -111,9 +90,25 @@ def train_model(data_loader, model, loss_function, optimizer):
     avg_loss = total_loss / num_batches
     print(f"Train loss: {avg_loss}")
 
-for ix_epoch in range(200):
+def test_model(data_loader, model, loss_function):
+    
+    num_batches = len(data_loader)
+    total_loss = 0
+
+    model.eval()
+    with torch.no_grad():
+        for X, y in data_loader:
+            output = model(X)
+            total_loss += loss_function(output, y).item()
+
+    avg_loss = total_loss / num_batches
+    print(f"Test loss: {avg_loss}")    
+
+for ix_epoch in range(100):
     print(f"Epoch {ix_epoch}\n---------")
     train_model(train_loader, model, loss_function, optimizer=optimizer)
+    #test_model(test_loader, model, loss_function)
+
 
 
 
