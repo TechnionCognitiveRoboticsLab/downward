@@ -95,6 +95,10 @@ class SearchDumpDataset(ConcatDataset):
             datasets.append(SingleFileSearchDumpDataset(filename, height, seq_len))
         ConcatDataset.__init__(self, datasets)
 
+    def get_domains(self):
+        return numpy.unique(self.data_df.domain.values)
+        
+
 # class SearchDumpDatasetSampler(ConcatDatasetBatchSampler):
 #     def __init__(self, ds : SearchDumpDataset, batch_size_per_dump : int = 1):        
 #         ConcatDatasetBatchSampler.__init__(self,
@@ -121,6 +125,8 @@ def main():
     ds = SearchDumpDataset(filename, height=3, seq_len = 10, min_expansions=1000, domain="depot", not_domain=True)
     ds2 = SearchDumpDataset(filename, height=3, seq_len = 10, min_expansions=1000, domain="depot", not_domain=False)
 
+    print(ds.get_domains())
+
     
     print(len(ds), len(ds2))
     print(ds[0])
@@ -130,11 +136,11 @@ def main():
     sampler = SearchDumpDatasetSampler(ds, num_samples=100)
     dataloader = DataLoader(ds, sampler=sampler)
     
-    for batch in sampler:
-        print(batch)
+    # for batch in sampler:
+    #     print(batch)
 
-    for X, y in dataloader:
-        print(X,y)
+    # for X, y in dataloader:
+    #     print(X,y)
 
     
 
