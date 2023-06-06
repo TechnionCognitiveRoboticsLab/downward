@@ -107,7 +107,7 @@ class SearchDumpDataset(ConcatDataset):
 class SearchDumpDatasetSampler(WeightedRandomSampler):    
     def __init__(self, ds : SearchDumpDataset, num_samples : int, replacement : bool = True, generator = None):
         weights = torch.concat( [torch.tensor([1 / len(dataset)] * len(dataset), dtype=torch.float) for dataset in ds.datasets])
-        WeightedRandomSampler.__init__(self, torch.tensor(weights,dtype=torch.float), num_samples, replacement, generator)
+        WeightedRandomSampler.__init__(self, weights, num_samples, replacement, generator)
         
 
 
@@ -115,7 +115,8 @@ class SearchDumpDatasetSampler(WeightedRandomSampler):
 def main():
     random.seed(42)
     #filename="/home/karpase/git/downward/experiments/search_progress_estimate/data/search_progress_exp-eval/data.csv"    
-    filename="/home/karpase/git/downward/experiments/search_progress_estimate/search_progress_exp-eval/data.csv"    
+    #filename="/home/karpase/git/downward/experiments/search_progress_estimate/search_progress_exp-eval/data.csv"    
+    filename="/data/karpase/search_progress_estimate/data/search_progress_exp-eval/data.csv"    
     #filename=sys.argv[1]
     ds = SearchDumpDataset(filename, height=3, seq_len = 10, min_expansions=1000, domain="depot", not_domain=True)
     ds2 = SearchDumpDataset(filename, height=3, seq_len = 10, min_expansions=1000, domain="depot", not_domain=False)

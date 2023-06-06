@@ -19,19 +19,24 @@ print("Name of the current CUDA Device: ", torch.cuda.get_device_name(cuda_id))
 
 #filename_train="/home/karpase/git/downward/experiments/search_progress_estimate/data/search_progress_exp-eval/data.csv"    
 #filename="/home/karpase/static/data.csv"
-filename="/home/karpase/git/downward/experiments/search_progress_estimate/search_progress_exp-eval/data.csv"
+#filename="/home/karpase/git/downward/experiments/search_progress_estimate/search_progress_exp-eval/data.csv"
+filename="/data/karpase/search_progress_estimate/data/search_progress_exp-eval/data.csv"
 #filename=sys.argv[1]
 
+domain = "depot"
 
+train = SearchDumpDataset(filename, height=3, seq_len = 10, min_expansions=1000, domain=domain, not_domain=True)
+test = SearchDumpDataset(filename, height=3, seq_len = 10, min_expansions=1000, domain=domain, not_domain=False)
+print("Train", len(train), " Test", len(test))
 
-train = SearchDumpDataset(filename, height=3, seq_len = 10, min_expansions=10) 
-train_sampler = BatchSampler(SearchDumpDatasetSampler(train, num_samples=256), batch_size=128, drop_last=True)
+#train = SearchDumpDataset(filename, height=3, seq_len = 10, min_expansions=10) 
+train_sampler = BatchSampler(SearchDumpDatasetSampler(train, num_samples=512), batch_size=512, drop_last=True)
 train_loader = DataLoader(train, batch_sampler=train_sampler)
 
 
 # test = SearchDumpDataset(filename_test, height=3, seq_len = 10, min_expansions=10)
-# test_sampler = SearchDumpDatasetSampler(test, batch_size_per_dump=1)
-# test_loader = DataLoader(test, batch_sampler=test_sampler)
+test_sampler = BatchSampler(SearchDumpDatasetSampler(test, num_samples=512), batch_size=512, drop_last=True)
+test_loader = DataLoader(test, batch_sampler=test_sampler)
 
 
 
@@ -53,14 +58,15 @@ class ShallowRegressionLSTM(nn.Module):
 
     def forward(self, x):
         batch_size = x.shape[0]
-        h0 = torch.zeros(self.num_layers, batch_size, self.hidden_units).requires_grad_()        
-        c0 = torch.zeros(self.num_layers, batch_size, self.hidden_units).requires_grad_()
+        h0 = torch.zeros(self.num_layers, batch_size, self.hidden_units).requires_grad_().cuda()        
+        c0 = torch.zeros(self.num_layers, batch_size, self.hidden_units).requires_grad_().cuda()
         
         _, (hn, _) = self.lstm(x, (h0, c0))
         out = self.linear(hn[0]).flatten()  # First dim of Hn is num_layers, which is set to 1 above.
 
         return out
-    
+
+
 learning_rate = 5e-5
 num_hidden_units = 16
 
@@ -68,15 +74,19 @@ model = ShallowRegressionLSTM(num_sensors=train[0][0].shape[1], hidden_units=num
 loss_function = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
+model.to(device)
+
 def train_model(data_loader, model, loss_function, optimizer):
     num_batches = len(data_loader)
     total_loss = 0
     model.train()
     
     for X, y in data_loader:
+        #X.to(device)
+        #y.to(device)
         #print("device", X.device, y.device)
-        output = model(X)
-        loss = loss_function(output, y)
+        output = model(X.cuda())
+        loss = loss_function(output, y.cuda())
 
         optimizer.zero_grad()
         loss.backward()
@@ -95,8 +105,8 @@ def test_model(data_loader, model, loss_function):
     model.eval()
     with torch.no_grad():
         for X, y in data_loader:            
-            output = model(X)
-            total_loss += loss_function(output, y).item()
+            output = model(X.cuda())
+            total_loss += loss_function(output, y.cuda()).item()
 
     avg_loss = total_loss / num_batches
     print(f"Test loss: {avg_loss}")    
@@ -104,7 +114,7 @@ def test_model(data_loader, model, loss_function):
 for ix_epoch in range(100):
     print(f"Epoch {ix_epoch}\n---------")
     train_model(train_loader, model, loss_function, optimizer=optimizer)
-    #test_model(test_loader, model, loss_function)
+    test_model(test_loader, model, loss_function)
 
 
 
