@@ -1,12 +1,10 @@
 import pandas
 import numpy
-import sys
-import gzip
 import torch
-from torch.utils.data import Dataset, ConcatDataset, RandomSampler, DataLoader, Sampler
+from torch.utils.data import Dataset, ConcatDataset, RandomSampler, DataLoader, WeightedRandomSampler
 import random
 
-from speechbrain.dataio.sampler import ConcatDatasetBatchSampler
+#from speechbrain.dataio.sampler import ConcatDatasetBatchSampler
 
 class SingleFileSearchDumpDataset(Dataset):    
     def __init__(self, datafilename : str, 
@@ -35,7 +33,7 @@ class SingleFileSearchDumpDataset(Dataset):
         for node in nodes:                    
             node_row = self.df.loc[node][self.basic_header_names].to_numpy(dtype=numpy.float64)
             if node_row.ndim > 1:
-                node_row = node_row[0,:].to_numpy(dtype=numpy.float64)
+                node_row = node_row[0,:]
             megarow_list.append(node_row)                        
         megarow_list.append([0.0] * len(self.basic_header_names) * (self.height - len(nodes)))
         megarow = torch.as_tensor(numpy.concatenate(megarow_list,axis=None)).float()
@@ -97,21 +95,30 @@ class SearchDumpDataset(ConcatDataset):
             datasets.append(SingleFileSearchDumpDataset(filename, height, seq_len))
         ConcatDataset.__init__(self, datasets)
 
-class SearchDumpDatasetSampler(ConcatDatasetBatchSampler):
-    def __init__(self, ds : SearchDumpDataset, batch_size_per_dump : int = 1):        
-        ConcatDatasetBatchSampler.__init__(self,
-            [RandomSampler(dataset) for dataset in ds.datasets],
-            batch_sizes=[batch_size_per_dump for _ in ds.datasets]
-        )
+# class SearchDumpDatasetSampler(ConcatDatasetBatchSampler):
+#     def __init__(self, ds : SearchDumpDataset, batch_size_per_dump : int = 1):        
+#         ConcatDatasetBatchSampler.__init__(self,
+#             [RandomSampler(dataset) for dataset in ds.datasets],
+#             batch_sizes=[batch_size_per_dump for _ in ds.datasets]
+#         )
+
+
+# class that will take in multiple samplers and output batches from a single dataset at a time
+class SearchDumpDatasetSampler(WeightedRandomSampler):    
+    def __init__(self, ds : SearchDumpDataset, num_samples : int, replacement : bool = True, generator = None):
+        weights = torch.concat( [torch.tensor([1 / len(dataset)] * len(dataset), dtype=torch.float) for dataset in ds.datasets])
+        WeightedRandomSampler.__init__(self, torch.tensor(weights,dtype=torch.float), num_samples, replacement, generator)
+        
 
 
 
 def main():
     random.seed(42)
-    filename="/home/karpase/git/downward/experiments/search_progress_estimate/data/search_progress_exp-eval/data.csv"    
+    #filename="/home/karpase/git/downward/experiments/search_progress_estimate/data/search_progress_exp-eval/data.csv"    
+    filename="/home/karpase/git/downward/experiments/search_progress_estimate/search_progress_exp-eval/data.csv"    
     #filename=sys.argv[1]
-    ds = SearchDumpDataset(filename, height=2, seq_len = 2, min_expansions=5, domain="depot", not_domain=True)
-    ds2 = SearchDumpDataset(filename, height=2, seq_len = 1, min_expansions=5, domain="depot", not_domain=False)
+    ds = SearchDumpDataset(filename, height=3, seq_len = 10, min_expansions=1000, domain="depot", not_domain=True)
+    ds2 = SearchDumpDataset(filename, height=3, seq_len = 10, min_expansions=1000, domain="depot", not_domain=False)
 
     
     print(len(ds), len(ds2))
@@ -119,8 +126,8 @@ def main():
     print(ds[1])
     print(ds[3])
 
-    sampler = SearchDumpDatasetSampler(ds)
-    dataloader = DataLoader(ds, batch_sampler=sampler)
+    sampler = SearchDumpDatasetSampler(ds, num_samples=100)
+    dataloader = DataLoader(ds, sampler=sampler)
     
     for batch in sampler:
         print(batch)
