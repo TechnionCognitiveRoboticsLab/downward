@@ -92,29 +92,22 @@ def test_model(data_loader, model, loss_function):
     avg_loss = total_loss / num_batches
     print(f"Test loss: {avg_loss}")    
 
-def train_sklearn_model(model, train_data, sample_size = 1024):
-    sklearn_sampler = SearchDumpDatasetSampler(train_data, num_samples=sample_size)
-    sklearn_loader = DataLoader(train_data, sampler=sklearn_sampler)
+def run_sklearn_model(model, data, train = True, sample_size = 1024):
+    sklearn_sampler = SearchDumpDatasetSampler(data, num_samples=sample_size)
+    sklearn_loader = DataLoader(data, sampler=sklearn_sampler)
     X = []
     Y = []    
     for x, y in sklearn_loader:
         X.append(torch.flatten(x).numpy())
-        Y.append(y)
+        Y.append(y[0])
     XX = numpy.stack(X)
     YY = numpy.stack(Y)
-    model.fit(XX,YY)
-
-def test_sklearn_model(model, test_data, sample_size = 1024):
-    sklearn_sampler = SearchDumpDatasetSampler(test_data, num_samples=sample_size)
-    sklearn_loader = DataLoader(test_data, sampler=sklearn_sampler)
-    total_loss = 0
-    n = 0
-    for x, y in sklearn_loader:
-        ypred = model.predict(torch.flatten(x).numpy())
-        total_loss += mean_squared_error(y, ypred)
-        n = n + 1
-    avg_loss = total_loss / n
-    print(f"Test loss: {avg_loss}")    
+    if train:
+        model.fit(XX,YY)
+    else:
+        YYpred = model.predict(XX)
+        print(f"Test loss: {mean_squared_error(YY, YYpred)}")    
+    
 
 def evaluate_domain(domain):    
     train = SearchDumpDataset(filename, height=3, seq_len = 10, min_expansions=1000, domain=domain, not_domain=True)
@@ -124,13 +117,13 @@ def evaluate_domain(domain):
 
     print("Random Forest Regression")
     clf = RandomForestRegressor(n_estimators=10)
-    train_sklearn_model(clf, train)
-    test_sklearn_model(clf, test)
+    run_sklearn_model(clf, train, train=True)
+    run_sklearn_model(clf, test, train=False)
 
     print("kNN Regression")
     knr = KNeighborsRegressor()
-    train_sklearn_model(knr, train)
-    test_sklearn_model(knr, test)
+    run_sklearn_model(knr, train, train=True)
+    run_sklearn_model(knr, test, train=False)
 
     #train = SearchDumpDataset(filename, height=3, seq_len = 10, min_expansions=10) 
     train_sampler = BatchSampler(SearchDumpDatasetSampler(train, num_samples=512), batch_size=512, drop_last=True)
