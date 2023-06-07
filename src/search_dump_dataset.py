@@ -3,6 +3,7 @@ import numpy
 import torch
 from torch.utils.data import Dataset, ConcatDataset, RandomSampler, DataLoader, WeightedRandomSampler
 import random
+from typing import Iterator, Iterable, Optional, Sequence, List, TypeVar, Generic, Sized, Union
 
 #from speechbrain.dataio.sampler import ConcatDatasetBatchSampler
 
@@ -108,10 +109,44 @@ class SearchDumpDataset(ConcatDataset):
 
 
 # class that will take in multiple samplers and output batches from a single dataset at a time
+# class SearchDumpDatasetSampler(WeightedRandomSampler):    
+#     def __init__(self, ds : SearchDumpDataset, num_samples : int, replacement : bool = True, generator = None):
+#         weights = torch.concat( [torch.tensor([1 / len(dataset)] * len(dataset), dtype=torch.float) for dataset in ds.datasets])
+#         WeightedRandomSampler.__init__(self, weights, num_samples, replacement, generator)
+
 class SearchDumpDatasetSampler(WeightedRandomSampler):    
-    def __init__(self, ds : SearchDumpDataset, num_samples : int, replacement : bool = True, generator = None):
-        weights = torch.concat( [torch.tensor([1 / len(dataset)] * len(dataset), dtype=torch.float) for dataset in ds.datasets])
-        WeightedRandomSampler.__init__(self, weights, num_samples, replacement, generator)
+    def __init__(self, ds : SearchDumpDataset, num_samples: Optional[int] = None, generator=None):
+        self.ds = ds
+        self._num_samples = num_samples
+        self.generator = generator
+        if not isinstance(self.num_samples, int) or self.num_samples <= 0:            
+            raise ValueError("num_samples should be a positive integer "
+                             "value, but got num_samples={}".format(self.num_samples))        
+
+    @property
+    def num_samples(self) -> int:
+        # dataset size might change at runtime
+        if self._num_samples is None:
+            return len(self.ds)
+        return self._num_samples
+        
+    def __len__(self) -> int:
+        return self.num_samples
+    
+    def __iter__(self) -> Iterator[int]:
+        n = len(self.ds)
+        if self.generator is None:
+            seed = int(torch.empty((), dtype=torch.int64).random_().item())
+            generator = torch.Generator()
+            generator.manual_seed(seed)
+        else:
+            generator = self.generator
+        
+        for _ in range(self.num_samples):
+            dataset_index = torch.randint(high=len(self.ds.datasets), size=(1,), generator=generator).tolist()[0]
+            row_index = torch.randint(high=len(self.ds.datasets[dataset_index]), size=(1,), generator=generator).tolist()[0]            
+            yield self.ds.cumulative_sizes[dataset_index] - row_index        
+        
         
 
 
@@ -136,11 +171,11 @@ def main():
     sampler = SearchDumpDatasetSampler(ds, num_samples=100)
     dataloader = DataLoader(ds, sampler=sampler)
     
-    # for batch in sampler:
-    #     print(batch)
+    for batch in sampler:
+        print(batch)
 
-    # for X, y in dataloader:
-    #     print(X,y)
+    for X, y in dataloader:
+        print(X,y)
 
     
 
