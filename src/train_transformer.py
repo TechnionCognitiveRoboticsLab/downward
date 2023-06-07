@@ -12,9 +12,9 @@ from sklearn.neighbors import KNeighborsRegressor
 from search_dump_dataset import SearchDumpDataset, SearchDumpDatasetSampler
 from torch.utils.data import DataLoader, BatchSampler
 
-learning_rate = 5e-5
-num_hidden_units = 16
-
+learning_rate = 1e-2
+num_hidden_units = 128
+num_layers = 6
 
 if torch.cuda.is_available(): 
     dev = "cuda:0" 
@@ -37,7 +37,7 @@ class ShallowRegressionLSTM(nn.Module):
         super().__init__()
         self.num_sensors = num_sensors  # this is the number of features
         self.hidden_units = hidden_units
-        self.num_layers = 1
+        self.num_layers = num_layers
 
         self.lstm = nn.LSTM(
             input_size=num_sensors,
@@ -126,11 +126,11 @@ def evaluate_domain(domain):
     run_sklearn_model(knr, test, train=False)
 
     #train = SearchDumpDataset(filename, height=3, seq_len = 10, min_expansions=10) 
-    train_sampler = BatchSampler(SearchDumpDatasetSampler(train, num_samples=512), batch_size=512, drop_last=True)
+    train_sampler = BatchSampler(SearchDumpDatasetSampler(train, num_samples=256), batch_size=256, drop_last=True)
     train_loader = DataLoader(train, batch_sampler=train_sampler)
 
     # test = SearchDumpDataset(filename_test, height=3, seq_len = 10, min_expansions=10)
-    test_sampler = BatchSampler(SearchDumpDatasetSampler(test, num_samples=512), batch_size=512, drop_last=True)
+    test_sampler = BatchSampler(SearchDumpDatasetSampler(test, num_samples=256), batch_size=256, drop_last=True)
     test_loader = DataLoader(test, batch_sampler=test_sampler)
 
     model = ShallowRegressionLSTM(num_sensors=train[0][0].shape[1], hidden_units=num_hidden_units)

@@ -145,7 +145,7 @@ class SearchDumpDatasetSampler(WeightedRandomSampler):
         for _ in range(self.num_samples):
             dataset_index = torch.randint(high=len(self.ds.datasets), size=(1,), generator=generator).tolist()[0]
             row_index = torch.randint(high=len(self.ds.datasets[dataset_index]), size=(1,), generator=generator).tolist()[0]            
-            yield self.ds.cumulative_sizes[dataset_index] - row_index        
+            yield self.ds.cumulative_sizes[dataset_index] - (row_index + 1)
         
         
 
